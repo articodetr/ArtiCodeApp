@@ -1,0 +1,6 @@
+<svg width="1024" height="1024" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1024" height="1024" fill="#3B82F6"/>
+  <circle cx="512" cy="400" r="150" fill="#FFFFFF"/>
+  <path d="M 400 650 L 512 550 L 624 650 L 512 750 Z" fill="#FFFFFF"/>
+  <text x="512" y="900" font-family="Arial" font-size="100" fill="#FFFFFF" text-anchor="middle" font-weight="bold">الترف</text>
+</svg>
