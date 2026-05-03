@@ -12,7 +12,7 @@ import { useRouter } from 'expo-router';
 import { ArrowRight, User, TrendingUp, TrendingDown } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
-import { UserLinkedAccount } from '@/types/database';
+import { UserLinkedAccount, CURRENCIES } from '@/types/database';
 
 export default function LinkedAccountsScreen() {
   const router = useRouter();
@@ -27,22 +27,10 @@ export default function LinkedAccountsScreen() {
 
   const loadLinkedAccounts = async () => {
     try {
-      // FIX: only fetch the rows OWNED by the current user.
-      //
-      // Previously this used:
-      //   .or(`owner_user_id.eq.${X},linked_user_id.eq.${X}`)
-      // which returned BOTH sides of every relationship — the row I own
-      // (whose `customer_name` is the local name I saved) AND the row that
-      // the OTHER user owns (whose `customer_name` is whatever they saved
-      // for me, e.g. "saleh"). That second row would then render with the
-      // counterparty's `app_security.full_name`, hiding my own custom name.
-      //
-      // By filtering to owner_user_id we always render the customer record
-      // I created on my own books, with the name I chose to save.
       const { data, error } = await supabase
         .from('user_linked_accounts')
         .select('*')
-        .eq('owner_user_id', currentUser?.userId)
+        .or(`owner_user_id.eq.${currentUser?.userId},linked_user_id.eq.${currentUser?.userId}`)
         .order('link_created_at', { ascending: false });
 
       if (!error && data) {
@@ -67,23 +55,19 @@ export default function LinkedAccountsScreen() {
   };
 
   const getInitials = (name: string) => {
-    const safeName = (name || '').trim();
-    if (!safeName) return '؟';
-    const words = safeName.split(/\s+/).filter(Boolean);
+    const words = name.split(' ');
     if (words.length >= 2) {
       return words[0][0] + words[1][0];
     }
-    return safeName.substring(0, 2);
+    return name.substring(0, 2);
   };
 
   const renderLinkedAccount = ({ item, index }: { item: UserLinkedAccount; index: number }) => {
-    // FIX: always use the LOCAL customer name the user saved on their own
-    // books. Fall back to the linked user's profile name only if the local
-    // name is somehow missing (legacy rows).
-    const displayName = (item.customer_name || (item as any).linked_full_name || 'مستخدم') as string;
-    const displayAccount = item.linked_account_number;
+    const isOwner = item.owner_user_id === currentUser?.userId;
+    const displayName = isOwner ? item.linked_full_name : item.owner_full_name;
+    const displayAccount = isOwner ? item.linked_account_number : item.owner_account_number;
     const balance = Number(item.total_balance);
-    const displayPersonHasCredit = balance > 0;
+    const displayPersonHasCredit = isOwner ? balance > 0 : balance < 0;
     const balanceLabel = displayPersonHasCredit ? 'له' : 'عليه';
     const balanceColor = displayPersonHasCredit ? '#10B981' : '#EF4444';
     const BalanceIcon = displayPersonHasCredit ? TrendingUp : TrendingDown;
@@ -100,6 +84,9 @@ export default function LinkedAccountsScreen() {
         <View style={styles.accountInfo}>
           <View style={styles.accountHeader}>
             <Text style={styles.accountName}>{displayName}</Text>
+            <View style={styles.roleBadge}>
+              <Text style={styles.roleBadgeText}>{isOwner ? 'عميلك' : 'أنت عميل عنده'}</Text>
+            </View>
           </View>
           <Text style={styles.accountNumber}>رقم الحساب: {displayAccount}</Text>
         </View>

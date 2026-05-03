@@ -28,10 +28,8 @@ import {
   generateRegularCustomerAccountNumber,
   isCustomerAccountNumberConflict,
 } from '@/utils/customerAccountNumber';
-import {
-  isCustomerLimitReachedMessage,
-  showCustomerLimitReachedAlert,
-} from '@/utils/subscriptionUpgradeRequest';
+import { isCustomerLimitReachedMessage } from '@/utils/subscriptionUpgradeRequest';
+import { SubscriptionLimitUpgradeModal } from '@/components/SubscriptionLimitUpgradeModal';
 
 type CustomerType = 'regular' | 'linked';
 
@@ -76,6 +74,16 @@ export default function AddCustomerScreen() {
   const [selectedUser, setSelectedUser] = useState<SearchUserResult | null>(null);
   const [showAdditionalFields, setShowAdditionalFields] = useState(false);
   const [formData, setFormData] = useState<FormDataState>(EMPTY_FORM);
+  const [limitUpgradeModal, setLimitUpgradeModal] = useState<{
+    visible: boolean;
+    quota: {
+      customerCount?: number | null;
+      customerLimit?: number | null;
+      customer_count?: number | null;
+      customer_limit?: number | null;
+      message?: string | null;
+    } | null;
+  }>({ visible: false, quota: null });
 
   useEffect(() => {
     if (customerId) {
@@ -230,11 +238,16 @@ export default function AddCustomerScreen() {
       customerLimit?: number | null;
       customer_count?: number | null;
       customer_limit?: number | null;
+      message?: string | null;
     };
 
-    showCustomerLimitReachedAlert(currentUser, {
-      customerCount: info.customerCount ?? info.customer_count ?? null,
-      customerLimit: info.customerLimit ?? info.customer_limit ?? null,
+    setLimitUpgradeModal({
+      visible: true,
+      quota: {
+        customerCount: info.customerCount ?? info.customer_count ?? null,
+        customerLimit: info.customerLimit ?? info.customer_limit ?? null,
+        message: info.message ?? null,
+      },
     });
   };
 
@@ -302,7 +315,7 @@ export default function AddCustomerScreen() {
 
         if (error) throw error;
 
-        const result = data?.[0];
+        const result = Array.isArray(data) ? data[0] : data;
 
         if (result?.success) {
           Alert.alert('نجح', result.message, [
@@ -678,6 +691,13 @@ export default function AddCustomerScreen() {
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAwareView>
+
+      <SubscriptionLimitUpgradeModal
+        visible={limitUpgradeModal.visible}
+        currentUser={currentUser}
+        quota={limitUpgradeModal.quota}
+        onClose={() => setLimitUpgradeModal({ visible: false, quota: null })}
+      />
     </View>
   );
 }

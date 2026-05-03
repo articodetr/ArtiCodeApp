@@ -576,3 +576,28 @@ tr:last-child td { border-bottom: 0; }
 
 .compact-btn { padding: 7px 10px; border-radius: 10px; font-size: 12px; }
 .quick-limit-row { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* Subscription requests page */
+.nav-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  margin-inline-start: 8px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 900;
+}
+.requests-stats-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.subscription-requests-panel { border-color: rgba(99,91,255,.18); }
+.subscription-requests-table { min-width: 1060px; }
+.subscription-requests-table .actions-cell { flex-wrap: wrap; }
+.request-new-row { background: linear-gradient(90deg, rgba(245,158,11,.09), transparent 50%); }
+
+@media (max-width: 920px) {
+  .requests-stats-grid { grid-template-columns: 1fr; }
+}

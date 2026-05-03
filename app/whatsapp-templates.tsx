@@ -13,13 +13,13 @@ import { useRouter } from 'expo-router';
 import { ChevronRight, Save, RotateCcw, Eye } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import {
+  APP_SETTINGS_FIXED_ID,
   DEFAULT_WHATSAPP_TEMPLATES,
   fetchWhatsAppTemplates,
   generatePreviewMessage,
   WhatsAppTemplates,
 } from '@/utils/whatsappTemplates';
 import { ArabicTemplateTokenBar } from '../components/ArabicTemplateTokenBar';
-import { useAuth } from '@/contexts/AuthContext';
 
 type TemplateKey = keyof WhatsAppTemplates;
 
@@ -30,7 +30,6 @@ type SelectionRange = {
 
 export default function WhatsAppTemplatesScreen() {
   const router = useRouter();
-  const { currentUser } = useAuth();
 
   const [templates, setTemplates] = useState<WhatsAppTemplates>({
     account_statement: '',
@@ -152,17 +151,13 @@ export default function WhatsAppTemplatesScreen() {
     setIsSaving(true);
 
     try {
-      if (!currentUser?.userId) {
-        throw new Error('لا يوجد مستخدم حالي');
-      }
-
       const { error } = await supabase.from('app_settings').upsert(
         {
-          user_id: currentUser.userId,
+          id: APP_SETTINGS_FIXED_ID,
           whatsapp_account_statement_template: templates.account_statement,
           whatsapp_share_account_template: templates.share_account,
         },
-        { onConflict: 'user_id' }
+        { onConflict: 'id' }
       );
 
       if (error) throw error;

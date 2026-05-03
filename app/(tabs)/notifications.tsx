@@ -260,149 +260,6 @@ function searchNotificationsLocally(
   return notifications.filter((item) => getNotificationSearchText(item).includes(query));
 }
 
-
-function isNotificationNameForCurrentUser(
-  value: unknown,
-  currentUser?: CurrentUserLike,
-) {
-  const candidate = normalizeText(value);
-  if (!candidate) return false;
-
-  const currentNames = [currentUser?.userName, currentUser?.fullName]
-    .map((item) => normalizeText(item))
-    .filter(Boolean);
-
-  return currentNames.includes(candidate);
-}
-
-function extractCustomerNameFromNotificationText(value?: unknown) {
-  const text = String(value || '').trim();
-  if (!text) return '';
-
-  const patterns = [
-    /أنتs+قيدتs+(?:على|لـ|ل)s+(.+?)(?:s+مبلغ|$)/u,
-    /قيدتs+(?:على|لـ|ل)s+(.+?)(?:s+مبلغ|$)/u,
-    /تمتs+موافقةs+(.+?)s+علىs+الحركة/u,
-    /رفضs+(.+?)s+هذهs+الحركة/u,
-  ];
-
-  for (const pattern of patterns) {
-    const match = text.match(pattern);
-    const extracted = String(match?.[1] || '').trim();
-    if (extracted) {
-      return extracted;
-    }
-  }
-
-  return '';
-}
-
-function pickNotificationDisplayCustomerName(
-  item: MovementNotification,
-  currentUser?: CurrentUserLike,
-) {
-  const anyItem = item as any;
-  const movement = anyItem.movement || {};
-  const extra = anyItem.extra_data || {};
-
-  const candidates = [
-    extractCustomerNameFromNotificationText(anyItem.title),
-    extractCustomerNameFromNotificationText(anyItem.message),
-    anyItem.customer_name,
-    movement.customer?.name,
-    extra.customer_name,
-    extra.counterparty_name,
-    extra.linked_customer_name,
-  ];
-
-  for (const candidate of candidates) {
-    const cleaned = String(candidate || '').trim();
-    if (!cleaned) continue;
-    if (isNotificationNameForCurrentUser(cleaned, currentUser)) continue;
-    return cleaned;
-  }
-
-  return '';
-}
-
-function patchNotificationForDisplay(
-  item: MovementNotification,
-  currentUser?: CurrentUserLike,
-): MovementNotification {
-  const forcedCustomerName = pickNotificationDisplayCustomerName(item, currentUser);
-  const anyItem = item as any;
-  const movement = anyItem.movement || null;
-
-  if (!forcedCustomerName) {
-    return item;
-  }
-
-  return {
-    ...item,
-    customer_name: forcedCustomerName,
-    movement: movement
-      ? {
-          ...movement,
-          customer: {
-            ...(movement.customer || {}),
-            name: forcedCustomerName,
-          },
-        }
-      : movement,
-  };
-}
-
-function getGeneralNotificationVisualDedupKey(item: MovementNotification) {
-  const rawStatus = getNotificationRawStatus(item);
-  return item.movement_id
-    ? [item.movement_id, rawStatus || item.notification_type || 'info'].join('::')
-    : item.id;
-}
-
-function getGeneralNotificationVisualScore(
-  item: MovementNotification,
-  currentUser?: CurrentUserLike,
-) {
-  let score = 0;
-
-  const displayCustomerName = pickNotificationDisplayCustomerName(item, currentUser);
-  if (displayCustomerName) score += 20;
-  if (item.message) score += 2;
-  if (item.title) score += 2;
-  if ((item as any).action_required === false) score += 1;
-  if (!isNotificationNameForCurrentUser(item.customer_name, currentUser)) score += 8;
-  if (!isNotificationNameForCurrentUser(item.movement?.customer?.name, currentUser)) score += 8;
-
-  return score;
-}
-
-function dedupeAndFixGeneralNotifications(
-  notifications: MovementNotification[],
-  currentUser?: CurrentUserLike,
-) {
-  const output = new Map<string, MovementNotification>();
-
-  for (const rawItem of notifications) {
-    const patchedItem = patchNotificationForDisplay(rawItem, currentUser);
-    const key = getGeneralNotificationVisualDedupKey(patchedItem);
-    const existing = output.get(key);
-
-    if (!existing) {
-      output.set(key, patchedItem);
-      continue;
-    }
-
-    const currentScore = getGeneralNotificationVisualScore(patchedItem, currentUser);
-    const existingScore = getGeneralNotificationVisualScore(existing, currentUser);
-
-    if (currentScore > existingScore) {
-      output.set(key, patchedItem);
-    }
-  }
-
-  return Array.from(output.values());
-}
-
 export default function NotificationsTabScreen() {
   const router = useRouter();
   const { currentUser } = useAuth();
@@ -426,7 +283,7 @@ export default function NotificationsTabScreen() {
 
     try {
       const nextNotifications = await getGeneralNotifications(currentUser.userId);
-      setNotifications(dedupeAndFixGeneralNotifications(nextNotifications, currentUser));
+      setNotifications(nextNotifications);
     } catch (error) {
       console.error('[Notifications] Error loading general notifications:', error);
       Alert.alert('خطأ', 'تعذر تحميل الإشعارات العامة');
@@ -434,7 +291,7 @@ export default function NotificationsTabScreen() {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [currentUser?.fullName, currentUser?.userId, currentUser?.userName]);
+  }, [currentUser?.userId]);
 
   useFocusEffect(
     useCallback(() => {

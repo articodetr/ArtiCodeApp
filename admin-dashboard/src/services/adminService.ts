@@ -6,6 +6,7 @@ import type {
   UserRow,
   SubscriptionRow,
   PaymentRow,
+  SubscriptionRequestRow,
   TransferMovementsData,
   SavePaymentInput,
   SaveSubscriptionInput,
@@ -120,6 +121,28 @@ export async function getPayments(token: string, search = '', status = 'all'): P
   });
   const result = ensureData<any>(data, error, 'تعذر جلب المدفوعات');
   return result.payments || [];
+}
+
+
+export async function getSubscriptionRequests(token: string, status = 'all'): Promise<SubscriptionRequestRow[]> {
+  const { data, error } = await supabase.rpc('admin_dashboard_get_subscription_requests', {
+    p_token: token,
+    p_status: status,
+    p_limit: 300,
+  });
+  const result = ensureData<any>(data, error, 'تعذر جلب طلبات الاشتراك');
+  return result.requests || [];
+}
+
+export async function updateSubscriptionRequestStatus(token: string, requestId: string, status: string) {
+  const { data, error } = await supabase.rpc('admin_dashboard_update_subscription_request_status', {
+    p_token: token,
+    p_request_id: requestId,
+    p_status: status,
+  });
+  const result = ensureData<any>(data, error, 'تعذر تحديث حالة طلب الاشتراك');
+  if (!result.success) throw new Error(result.message || 'تعذر تحديث حالة طلب الاشتراك');
+  return result.request;
 }
 
 

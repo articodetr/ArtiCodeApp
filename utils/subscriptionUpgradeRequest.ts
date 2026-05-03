@@ -1,5 +1,6 @@
 import Constants from 'expo-constants';
 import { Alert, Linking } from 'react-native';
+import { supabase } from '@/lib/supabase';
 
 type CurrentUserInfo = {
   userId?: string | null;
@@ -103,12 +104,36 @@ const buildUpgradeMessage = (
   return lines.join('\n');
 };
 
+const recordSubscriptionUpgradeRequest = async (
+  currentUser?: CurrentUserInfo | null,
+  quota?: QuotaInfo | null,
+  message?: string
+) => {
+  try {
+    const { customerCount, customerLimit } = normalizeQuota(quota);
+    await supabase.rpc('app_create_subscription_request', {
+      p_user_id: currentUser?.userId || null,
+      p_user_name: currentUser?.userName || null,
+      p_full_name: currentUser?.fullName || null,
+      p_account_number: currentUser?.accountNumber || null,
+      p_customer_count: typeof customerCount === 'number' ? customerCount : null,
+      p_customer_limit: typeof customerLimit === 'number' ? customerLimit : null,
+      p_whatsapp_number: getAdminSubscriptionWhatsAppNumber(),
+      p_message: message || null,
+    });
+  } catch (error) {
+    // لا نمنع فتح واتساب إذا لم يتم تطبيق ملف SQL بعد.
+    console.warn('[subscription-request] Failed to record request:', error);
+  }
+};
+
 export const openSubscriptionUpgradeWhatsApp = async (
   currentUser?: CurrentUserInfo | null,
   quota?: QuotaInfo | null
 ) => {
   const adminPhone = getAdminSubscriptionWhatsAppNumber();
   const message = buildUpgradeMessage(currentUser, quota);
+  await recordSubscriptionUpgradeRequest(currentUser, quota, message);
   const encodedMessage = encodeURIComponent(message);
   const appUrl = adminPhone
     ? `whatsapp://send?phone=${adminPhone}&text=${encodedMessage}`

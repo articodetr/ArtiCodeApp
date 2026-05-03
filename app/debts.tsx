@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,7 @@ import {
   Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ArrowRight, CheckCircle } from 'lucide-react-native';
+import { ArrowRight, Plus, AlertCircle, CheckCircle } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { Debt } from '@/types/database';
 import { useAuth } from '@/contexts/AuthContext';
@@ -23,13 +23,6 @@ interface DebtWithCustomer extends Debt {
   customer_linked_user_id?: string | null;
   customer_is_profit_loss_account?: boolean | null;
   customer_account_number?: string | null;
-}
-
-function formatAmount(value: number) {
-  return Number(value || 0).toLocaleString('en-US', {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  });
 }
 
 export default function DebtsScreen() {
@@ -65,7 +58,12 @@ export default function DebtsScreen() {
 
       const { data, error } = await supabase
         .from('debts')
-        .select(`*, customers!inner(name, linked_user_id, is_profit_loss_account, account_number)`)
+        .select(
+          `
+          *,
+          customers!inner(name, linked_user_id, is_profit_loss_account, account_number)
+        `
+        )
         .in('customer_id', accessibleCustomerIds)
         .order('created_at', { ascending: false });
 
@@ -97,9 +95,15 @@ export default function DebtsScreen() {
 
     Alert.alert(
       'تسديد الدين',
-      `المبلغ المتبقي: ${remainingAmount.toFixed(2)} ${debt.currency}`,
+      `المبلغ المتبقي: ${remainingAmount.toFixed(2)} ${debt.currency}\nاختر نوع التسديد:`,
       [
         { text: 'إلغاء', style: 'cancel' },
+        {
+          text: 'تسديد جزئي',
+          onPress: () => {
+            Alert.alert('قريباً', 'هذه الميزة قيد التطوير');
+          },
+        },
         {
           text: 'تسديد كامل',
           onPress: async () => {
@@ -114,6 +118,7 @@ export default function DebtsScreen() {
                 .eq('id', debt.id);
 
               if (error) throw error;
+
               Alert.alert('نجح', 'تم تسديد الدين بنجاح');
               loadDebts();
             } catch (error) {
@@ -121,39 +126,25 @@ export default function DebtsScreen() {
             }
           },
         },
-      ],
+      ]
     );
   };
 
-  const filteredDebts = useMemo(() => {
-    return debts.filter((debt) => {
-      if (filter === 'all') return true;
-      if (filter === 'pending') return debt.status === 'pending' || debt.status === 'partial';
-      return debt.status === 'paid';
-    });
-  }, [debts, filter]);
+  const filteredDebts = debts.filter((debt) => {
+    if (filter === 'all') return true;
+    return debt.status === filter;
+  });
 
   const totalPending = debts
     .filter((d) => d.status === 'pending' || d.status === 'partial')
     .reduce((sum, d) => sum + (Number(d.amount) - Number(d.paid_amount)), 0);
 
-  const getStatusMeta = (status: DebtWithCustomer['status']) => {
-    if (status === 'paid') return { label: 'مسدد', color: '#16A34A', bg: '#ECFDF3' };
-    if (status === 'partial') return { label: 'جزئي', color: '#F59E0B', bg: '#FFF7ED' };
-    return { label: 'مستحق', color: '#DC2626', bg: '#FEF2F2' };
-  };
-
   const renderDebt = ({ item }: { item: DebtWithCustomer }) => {
     const remainingAmount = Number(item.amount) - Number(item.paid_amount);
-    const statusMeta = getStatusMeta(item.status);
 
     return (
       <View style={styles.debtCard}>
         <View style={styles.debtHeader}>
-          <View style={[styles.statusPill, { backgroundColor: statusMeta.bg }]}>
-            <Text style={[styles.statusPillText, { color: statusMeta.color }]}>{statusMeta.label}</Text>
-          </View>
-
           <View style={styles.debtInfo}>
             <View style={styles.customerHeader}>
               <CustomerStatusBadge
@@ -163,50 +154,87 @@ export default function DebtsScreen() {
               <Text style={styles.customerName}>{item.customer_name}</Text>
             </View>
             {item.customer_account_number ? (
-              <Text style={styles.customerMeta}>رقم الحساب: {item.customer_account_number}</Text>
+              <Text style={styles.customerMeta}>
+                رقم الحساب: {item.customer_account_number}
+              </Text>
             ) : null}
-            {item.reason ? <Text style={styles.debtReason}>{item.reason}</Text> : null}
+            {item.reason && <Text style={styles.debtReason}>{item.reason}</Text>}
+          </View>
+          <View
+            style={[
+              styles.statusBadge,
+              {
+                backgroundColor:
+                  item.status === 'paid'
+                    ? '#10B98115'
+                    : item.status === 'partial'
+                    ? '#F59E0B15'
+                    : '#EF444415',
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.statusText,
+                {
+                  color:
+                    item.status === 'paid'
+                      ? '#10B981'
+                      : item.status === 'partial'
+                      ? '#F59E0B'
+                      : '#EF4444',
+                },
+              ]}
+            >
+              {item.status === 'paid'
+                ? 'مسدد'
+                : item.status === 'partial'
+                ? 'جزئي'
+                : 'مستحق'}
+            </Text>
           </View>
         </View>
 
-        <View style={styles.valuesWrap}>
-          <View style={styles.valueRow}>
-            <Text style={styles.valueLabel}>الإجمالي</Text>
-            <Text style={styles.valueText}>
-              {formatAmount(Number(item.amount))} {item.currency}
+        <View style={styles.debtBody}>
+          <View style={styles.amountRow}>
+            <Text style={styles.amountLabel}>المبلغ الإجمالي</Text>
+            <Text style={styles.amountValue}>
+              {Number(item.amount).toFixed(2)} {item.currency}
             </Text>
           </View>
 
-          {item.paid_amount > 0 ? (
-            <View style={styles.valueRow}>
-              <Text style={styles.valueLabel}>المدفوع</Text>
-              <Text style={[styles.valueText, { color: '#16A34A' }]}>
-                {formatAmount(Number(item.paid_amount))} {item.currency}
+          {item.paid_amount > 0 && (
+            <View style={styles.amountRow}>
+              <Text style={styles.amountLabel}>المبلغ المدفوع</Text>
+              <Text style={[styles.amountValue, { color: '#10B981' }]}>
+                {Number(item.paid_amount).toFixed(2)} {item.currency}
               </Text>
             </View>
-          ) : null}
+          )}
 
-          {item.status !== 'paid' ? (
-            <View style={styles.valueRow}>
-              <Text style={styles.valueLabel}>المتبقي</Text>
-              <Text style={[styles.valueText, { color: '#DC2626' }]}>
-                {formatAmount(remainingAmount)} {item.currency}
+          {item.status !== 'paid' && (
+            <View style={styles.amountRow}>
+              <Text style={styles.amountLabel}>المبلغ المتبقي</Text>
+              <Text style={[styles.amountValue, { color: '#EF4444' }]}>
+                {remainingAmount.toFixed(2)} {item.currency}
               </Text>
             </View>
-          ) : null}
+          )}
         </View>
 
-        <View style={styles.footerRow}>
+        <View style={styles.debtFooter}>
           <Text style={styles.dateText}>
             {format(new Date(item.created_at), 'dd MMMM yyyy', { locale: ar })}
           </Text>
-
-          {item.status !== 'paid' ? (
-            <TouchableOpacity style={styles.payButton} onPress={() => handlePayDebt(item)}>
-              <CheckCircle size={14} color="#16A34A" />
+          {item.status !== 'paid' && (
+            <TouchableOpacity
+              style={styles.payButton}
+              onPress={() => handlePayDebt(item)}
+            >
+              <CheckCircle size={16} color="#10B981" />
               <Text style={styles.payButtonText}>تسديد</Text>
             </TouchableOpacity>
-          ) : null}
+          )}
         </View>
       </View>
     );
@@ -214,152 +242,265 @@ export default function DebtsScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.contentContainer}>
-        <View style={styles.topHeader}>
-          <View style={styles.headerSpacer} />
-          <Text style={styles.pageTitle}>الديون</Text>
-          <TouchableOpacity style={styles.topIconButton} onPress={() => router.back()}>
-            <ArrowRight size={18} color="#1E1B4B" />
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.summaryCard}>
-          <Text style={styles.summaryLabel}>إجمالي الديون المستحقة</Text>
-          <Text style={styles.summaryValue}>{formatAmount(totalPending)} $</Text>
-        </View>
-
-        <View style={styles.filterRow}>
-          {[
-            { key: 'all', label: 'الكل' },
-            { key: 'pending', label: 'مستحقة' },
-            { key: 'paid', label: 'مسددة' },
-          ].map((item) => (
-            <TouchableOpacity
-              key={item.key}
-              style={[styles.filterChip, filter === item.key && styles.filterChipActive]}
-              onPress={() => setFilter(item.key as any)}
-            >
-              <Text style={[styles.filterChipText, filter === item.key && styles.filterChipTextActive]}>
-                {item.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        <FlatList
-          data={filteredDebts}
-          renderItem={renderDebt}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-          showsVerticalScrollIndicator={false}
-          ListEmptyComponent={
-            <View style={styles.emptyBox}>
-              <Text style={styles.emptyText}>{isLoading ? 'جاري التحميل...' : 'لا توجد ديون'}</Text>
-            </View>
-          }
-        />
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+          <ArrowRight size={24} color="#111827" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>الديون</Text>
+        <TouchableOpacity
+          style={styles.addButton}
+          onPress={() => Alert.alert('قريباً', 'هذه الميزة قيد التطوير')}
+        >
+          <Plus size={20} color="#FFFFFF" />
+        </TouchableOpacity>
       </View>
+
+      <View style={styles.summaryCard}>
+        <AlertCircle size={32} color="#EF4444" />
+        <Text style={styles.summaryLabel}>إجمالي الديون المستحقة</Text>
+        <Text style={styles.summaryValue}>{totalPending.toFixed(2)} $</Text>
+      </View>
+
+      <View style={styles.filterContainer}>
+        <TouchableOpacity
+          style={[styles.filterButton, filter === 'all' && styles.filterButtonActive]}
+          onPress={() => setFilter('all')}
+        >
+          <Text
+            style={[styles.filterText, filter === 'all' && styles.filterTextActive]}
+          >
+            الكل
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.filterButton, filter === 'pending' && styles.filterButtonActive]}
+          onPress={() => setFilter('pending')}
+        >
+          <Text
+            style={[styles.filterText, filter === 'pending' && styles.filterTextActive]}
+          >
+            مستحقة
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.filterButton, filter === 'paid' && styles.filterButtonActive]}
+          onPress={() => setFilter('paid')}
+        >
+          <Text
+            style={[styles.filterText, filter === 'paid' && styles.filterTextActive]}
+          >
+            مسددة
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      <FlatList
+        data={filteredDebts}
+        renderItem={renderDebt}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.listContent}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>
+              {isLoading ? 'جاري التحميل...' : 'لا توجد ديون'}
+            </Text>
+          </View>
+        }
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F7F7FC' },
-  contentContainer: { flex: 1, padding: 14, paddingBottom: 0 },
-  topHeader: {
+  container: {
+    flex: 1,
+    backgroundColor: '#F9FAFB',
+  },
+  header: {
+    backgroundColor: '#FFFFFF',
+    paddingTop: 16,
+    paddingHorizontal: 20,
+    paddingBottom: 16,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 14,
-    marginTop: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
   },
-  topIconButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
+  backButton: {
+    width: 40,
+    height: 40,
     justifyContent: 'center',
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.04,
-    shadowRadius: 10,
-    elevation: 2,
-  },
-  headerSpacer: { width: 42, height: 42 },
-  pageTitle: { fontSize: 24, fontWeight: '900', color: '#1E1B4B' },
-  summaryCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    padding: 14,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#ECECF7',
-  },
-  summaryLabel: { fontSize: 12, color: '#7C84A3', textAlign: 'right', marginBottom: 4 },
-  summaryValue: { fontSize: 22, fontWeight: '900', color: '#DC2626', textAlign: 'right' },
-  filterRow: { flexDirection: 'row', gap: 10, marginBottom: 12 },
-  filterChip: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    paddingVertical: 10,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E3E7F2',
   },
-  filterChipActive: { backgroundColor: '#5B5AF7', borderColor: '#5B5AF7' },
-  filterChipText: { fontSize: 13, fontWeight: '800', color: '#5B5AF7' },
-  filterChipTextActive: { color: '#FFFFFF' },
-  listContent: { paddingBottom: 24, gap: 10 },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#111827',
+  },
+  addButton: {
+    width: 40,
+    height: 40,
+    backgroundColor: '#4F46E5',
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  summaryCard: {
+    backgroundColor: '#FEE2E2',
+    margin: 16,
+    padding: 20,
+    borderRadius: 16,
+    alignItems: 'center',
+  },
+  summaryLabel: {
+    fontSize: 14,
+    color: '#991B1B',
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  summaryValue: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#DC2626',
+  },
+  filterContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    gap: 8,
+    marginBottom: 8,
+  },
+  filterButton: {
+    flex: 1,
+    paddingVertical: 10,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  filterButtonActive: {
+    backgroundColor: '#4F46E5',
+    borderColor: '#4F46E5',
+  },
+  filterText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6B7280',
+    textAlign: 'center',
+  },
+  filterTextActive: {
+    color: '#FFFFFF',
+  },
+  listContent: {
+    padding: 16,
+  },
   debtCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#ECECF7',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
-  debtHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
-  debtInfo: { flex: 1, alignItems: 'flex-end' },
-  customerHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  customerName: { fontSize: 15, fontWeight: '900', color: '#1E1B4B', textAlign: 'right' },
-  customerMeta: { fontSize: 12, color: '#7C84A3', textAlign: 'right', marginTop: 4 },
-  debtReason: { fontSize: 12, color: '#374151', textAlign: 'right', marginTop: 4 },
-  statusPill: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, marginLeft: 10 },
-  statusPillText: { fontSize: 12, fontWeight: '800' },
-  valuesWrap: { gap: 8, marginBottom: 10 },
-  valueRow: {
+  debtHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    backgroundColor: '#FAFBFF',
-    borderWidth: 1,
-    borderColor: '#EEF1F6',
-    borderRadius: 12,
-    padding: 10,
+    alignItems: 'center',
+    marginBottom: 12,
   },
-  valueLabel: { fontSize: 12, color: '#6B7280', fontWeight: '700' },
-  valueText: { fontSize: 14, color: '#1F2937', fontWeight: '900' },
-  footerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  dateText: { fontSize: 12, color: '#7C84A3' },
+  debtInfo: {
+    flex: 1,
+  },
+  customerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  customerName: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#111827',
+    textAlign: 'right',
+  },
+  customerMeta: {
+    fontSize: 12,
+    color: '#64748B',
+    textAlign: 'right',
+    marginTop: 6,
+    marginBottom: 4,
+  },
+  debtReason: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'right',
+  },
+  statusBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  debtBody: {
+    marginBottom: 12,
+  },
+  amountRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 6,
+  },
+  amountLabel: {
+    fontSize: 14,
+    color: '#6B7280',
+  },
+  amountValue: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#111827',
+  },
+  debtFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+  },
+  dateText: {
+    fontSize: 12,
+    color: '#9CA3AF',
+  },
   payButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#ECFDF3',
+    gap: 4,
+    backgroundColor: '#10B98115',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
   },
-  payButtonText: { fontSize: 12, color: '#16A34A', fontWeight: '800' },
-  emptyBox: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    padding: 24,
-    alignItems: 'center',
+  payButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#10B981',
+  },
+  emptyContainer: {
+    flex: 1,
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#ECECF7',
+    alignItems: 'center',
+    paddingVertical: 64,
   },
-  emptyText: { fontSize: 14, color: '#7C84A3', fontWeight: '600' },
+  emptyText: {
+    fontSize: 16,
+    color: '#9CA3AF',
+  },
 });

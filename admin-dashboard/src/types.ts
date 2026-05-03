@@ -1,6 +1,7 @@
 export type BillingCycle = 'monthly' | 'yearly';
 export type SubscriptionStatus = 'active' | 'ending_soon' | 'expired' | 'canceled' | 'trial' | 'all';
 export type PaymentStatus = 'paid' | 'pending' | 'failed' | 'refunded' | 'all';
+export type SubscriptionRequestStatus = 'new' | 'contacted' | 'activated' | 'closed' | 'all';
 export type MovementType = 'incoming' | 'outgoing' | 'all';
 export type TransferDirection = 'shop_to_customer' | 'customer_to_shop' | 'customer_to_customer' | 'all';
 
@@ -90,6 +91,25 @@ export interface SubscriptionRow {
   account_number?: string | null;
   role?: string;
   is_active?: boolean;
+}
+
+
+export interface SubscriptionRequestRow {
+  id: string;
+  user_id?: string | null;
+  full_name?: string | null;
+  user_name?: string | null;
+  account_number?: string | null;
+  customer_count?: number | null;
+  customer_limit?: number | null;
+  whatsapp_number?: string | null;
+  request_message?: string | null;
+  status: SubscriptionRequestStatus;
+  source?: string | null;
+  created_at: string;
+  updated_at?: string | null;
+  subscription_status?: string | null;
+  end_date?: string | null;
 }
 
 export interface PaymentRow {

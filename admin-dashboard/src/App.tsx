@@ -8,6 +8,7 @@ import type {
   SavePaymentInput,
   SaveSubscriptionInput,
   SubscriptionRow,
+  SubscriptionRequestRow,
   TransferMovementsData,
   TransferMovementRow,
   UserDetailData,
@@ -24,7 +25,7 @@ import {
 } from './utils/format';
 import * as adminService from './services/adminService';
 
-type PageKey = 'overview' | 'users' | 'subscriptions' | 'payments' | 'transfers' | 'activity' | 'user_detail';
+type PageKey = 'overview' | 'users' | 'subscriptions' | 'payments' | 'subscription_requests' | 'transfers' | 'activity' | 'user_detail';
 
 const emptyTransferData: TransferMovementsData = {
   stats: {
@@ -84,6 +85,27 @@ function billingLabel(cycle?: string | null) {
   if (cycle === 'monthly') return 'شهري';
   if (cycle === 'yearly') return 'سنوي';
   return '—';
+}
+
+function requestStatusLabel(status?: string | null) {
+  if (status === 'new') return 'جديد';
+  if (status === 'contacted') return 'تم التواصل';
+  if (status === 'activated') return 'تم التفعيل';
+  if (status === 'closed') return 'مغلق';
+  return '—';
+}
+
+function requestBadgeClass(status?: string | null) {
+  if (status === 'new') return 'badge badge-orange';
+  if (status === 'contacted') return 'badge badge-blue';
+  if (status === 'activated') return 'badge badge-green';
+  if (status === 'closed') return 'badge badge-gray';
+  return 'badge badge-blue';
+}
+
+function formatPhone(phone?: string | null) {
+  const cleaned = String(phone || '').replace(/[^0-9]/g, '');
+  return cleaned ? `+${cleaned}` : '—';
 }
 
 function movementLabel(type?: string | null) {
@@ -319,8 +341,7 @@ function UsersTable({ users, onOpenUser, onCreateSubscription }: { users: UserRo
             <tr>
               <th>المستخدم</th>
               <th>رقم الحساب</th>
-              <th>الصلاحية</th>
-              <th>العملاء</th>
+              <th>العملاء الفعليون</th>
               <th>الاشتراك</th>
               <th>تاريخ الانتهاء</th>
               <th>آخر دخول</th>
@@ -329,7 +350,7 @@ function UsersTable({ users, onOpenUser, onCreateSubscription }: { users: UserRo
           </thead>
           <tbody>
             {users.length === 0 ? (
-              <tr><td colSpan={8} className="empty-cell">لا توجد بيانات حالياً</td></tr>
+              <tr><td colSpan={7} className="empty-cell">لا توجد بيانات حالياً</td></tr>
             ) : users.map((user) => (
               <tr key={user.id}>
                 <td>
@@ -342,7 +363,6 @@ function UsersTable({ users, onOpenUser, onCreateSubscription }: { users: UserRo
                   </div>
                 </td>
                 <td>{user.account_number || '—'}</td>
-                <td><span className="pill">{user.role}</span></td>
                 <td>
                   <span className={user.can_add_customer === false ? 'badge badge-orange' : 'badge badge-green'}>{quotaValue(user).text}</span>
                   <small className="subline">{user.quota_message || (user.has_active_subscription ? 'ضمن الاشتراك' : 'الحد المجاني')}</small>
@@ -453,6 +473,90 @@ function PaymentsTable({ rows }: { rows: PaymentRow[] }) {
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+function SubscriptionRequestsPage({
+  rows,
+  onOpenUserId,
+  onUpdateStatus,
+}: {
+  rows: SubscriptionRequestRow[];
+  onOpenUserId: (userId: string) => void;
+  onUpdateStatus: (requestId: string, status: string) => Promise<void>;
+}) {
+  const newCount = rows.filter((row) => row.status === 'new').length;
+  const activatedCount = rows.filter((row) => row.status === 'activated').length;
+
+  return (
+    <div className="page-grid">
+      <div className="stats-grid requests-stats-grid">
+        <StatCard title="طلبات جديدة" value={formatNumber(newCount)} icon="🔔" tone="orange" foot="تحتاج متابعة" />
+        <StatCard title="إجمالي الطلبات" value={formatNumber(rows.length)} icon="📨" tone="purple" foot="من التطبيق وواتساب" />
+        <StatCard title="تم التفعيل" value={formatNumber(activatedCount)} icon="✅" tone="green" foot="طلبات مكتملة" />
+      </div>
+
+      <section className="panel-card subscription-requests-panel">
+        <div className="card-head">
+          <div>
+            <h3>طالبوا الاشتراك</h3>
+            <span>كل مستخدم يضغط زر طلب التفعيل عبر واتساب يتم تسجيل طلبه هنا حتى تتابعه من لوحة الإدارة.</span>
+          </div>
+          <span>{formatNumber(rows.length)} طلب</span>
+        </div>
+
+        <div className="table-card">
+          <div className="table-responsive">
+            <table className="subscription-requests-table">
+              <thead>
+                <tr>
+                  <th>المستخدم</th>
+                  <th>رقم الحساب</th>
+                  <th>الاستخدام</th>
+                  <th>رقم واتساب المسؤول</th>
+                  <th>حالة الطلب</th>
+                  <th>وقت الطلب</th>
+                  <th>إجراءات</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.length === 0 ? (
+                  <tr><td colSpan={7} className="empty-cell">لا توجد طلبات اشتراك حتى الآن</td></tr>
+                ) : rows.map((row) => (
+                  <tr key={row.id} className={row.status === 'new' ? 'request-new-row' : ''}>
+                    <td>
+                      <div className="user-cell">
+                        <div className="avatar">{getInitials(row.full_name || row.user_name)}</div>
+                        <div>
+                          <b>{row.full_name || 'بدون اسم'}</b>
+                          <small>{row.user_name || '—'}</small>
+                        </div>
+                      </div>
+                    </td>
+                    <td>{row.account_number || '—'}</td>
+                    <td>
+                      <span className="badge badge-orange">
+                        {formatNumber(row.customer_count || 0)} / {row.customer_limit && row.customer_limit >= 999999 ? 'غير محدود' : formatNumber(row.customer_limit || 5)}
+                      </span>
+                      <small className="subline">طلب تفعيل لإضافة المزيد</small>
+                    </td>
+                    <td>{formatPhone(row.whatsapp_number)}</td>
+                    <td><span className={requestBadgeClass(row.status)}>{requestStatusLabel(row.status)}</span></td>
+                    <td>{formatDateTime(row.created_at)}</td>
+                    <td className="actions-cell">
+                      {row.user_id ? <button className="ghost-btn compact-btn" onClick={() => onOpenUserId(row.user_id!)}>ملف المستخدم</button> : null}
+                      {row.status !== 'contacted' ? <button className="soft-btn compact-btn" onClick={() => onUpdateStatus(row.id, 'contacted')}>تم التواصل</button> : null}
+                      {row.status !== 'activated' ? <button className="primary-btn compact-btn" onClick={() => onUpdateStatus(row.id, 'activated')}>تم التفعيل</button> : null}
+                      {row.status !== 'closed' ? <button className="ghost-btn compact-btn" onClick={() => onUpdateStatus(row.id, 'closed')}>إغلاق</button> : null}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
@@ -1189,6 +1293,8 @@ function GlobalSearchResults({
 
 function OverviewPage({ overview, users, onOpenUser, onCreateSubscription }: { overview: OverviewData; users: UserRow[]; onOpenUser: (user: UserRow) => void; onCreateSubscription: (user: UserRow) => void }) {
   const stats = overview.stats || emptyOverview.stats;
+  const usersById = new Map(users.map((user) => [user.id, user]));
+  const recentUsers = (overview.recent_users || []).map((user) => ({ ...user, ...(usersById.get(user.id) || {}) }));
   return (
     <div className="page-grid">
       <div className="stats-grid">
@@ -1208,7 +1314,7 @@ function OverviewPage({ overview, users, onOpenUser, onCreateSubscription }: { o
       <div className="dashboard-two-cols lower">
         <section className="panel-card">
           <div className="card-head"><h3>المستخدمون الأخيرون</h3><span>{users.length} مستخدم</span></div>
-          <UsersTable users={overview.recent_users} onOpenUser={onOpenUser} onCreateSubscription={onCreateSubscription} />
+          <UsersTable users={recentUsers} onOpenUser={onOpenUser} onCreateSubscription={onCreateSubscription} />
         </section>
         <section className="panel-card">
           <div className="card-head"><h3>آخر حركة حساب</h3><span>نشاط الإدارة</span></div>
@@ -1226,6 +1332,7 @@ export default function App() {
   const [users, setUsers] = useState<UserRow[]>([]);
   const [subscriptions, setSubscriptions] = useState<SubscriptionRow[]>([]);
   const [payments, setPayments] = useState<PaymentRow[]>([]);
+  const [subscriptionRequests, setSubscriptionRequests] = useState<SubscriptionRequestRow[]>([]);
   const [transfersData, setTransfersData] = useState<TransferMovementsData>(emptyTransferData);
   const [searchDraft, setSearchDraft] = useState('');
   const [search, setSearch] = useState('');
@@ -1250,11 +1357,12 @@ export default function App() {
       // لا نحمل حركة الحوالات هنا لأنها قد تكون جدولًا كبيرًا جدًا.
       // يتم تحميلها فقط عند فتح صفحة "حركة الحوالات" حتى لا يظهر خطأ statement timeout في الصفحة الرئيسية.
       const shouldLoadTransferResults = search.trim().length > 0;
-      const [nextOverview, nextUsers, nextSubscriptions, nextPayments, nextTransfers] = await Promise.all([
+      const [nextOverview, nextUsers, nextSubscriptions, nextPayments, nextRequests, nextTransfers] = await Promise.all([
         adminService.getOverview(token),
         adminService.getUsers(token, search),
         adminService.getSubscriptions(token, search, statusFilter),
         adminService.getPayments(token, search, statusFilter),
+        adminService.getSubscriptionRequests(token, 'all'),
         shouldLoadTransferResults
           ? adminService.getTransfers(token, search, transferDirectionFilter, transferStatusFilter)
           : Promise.resolve(null),
@@ -1263,6 +1371,7 @@ export default function App() {
       setUsers(nextUsers);
       setSubscriptions(nextSubscriptions);
       setPayments(nextPayments);
+      setSubscriptionRequests(nextRequests);
       if (nextTransfers) setTransfersData(nextTransfers);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'حدث خطأ أثناء تحميل البيانات');
@@ -1368,12 +1477,28 @@ export default function App() {
     await refreshAll();
   }
 
+  async function handleUpdateSubscriptionRequestStatus(requestId: string, nextStatus: string) {
+    if (!token) return;
+    setLoading(true);
+    setError('');
+    try {
+      await adminService.updateSubscriptionRequestStatus(token, requestId, nextStatus);
+      const nextRequests = await adminService.getSubscriptionRequests(token, 'all');
+      setSubscriptionRequests(nextRequests);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'تعذر تحديث طلب الاشتراك');
+    } finally {
+      setLoading(false);
+    }
+  }
+
   const activePageTitle = useMemo(() => {
     const titles: Record<PageKey, string> = {
       overview: 'نظرة عامة',
       users: 'المستخدمون',
       subscriptions: 'الاشتراكات',
       payments: 'المدفوعات',
+      subscription_requests: 'طالبوا الاشتراك',
       transfers: 'حركة الحوالات',
       activity: 'حركة الحساب',
       user_detail: userDetail?.user?.full_name ? `ملف المستخدم: ${userDetail.user.full_name}` : 'تفاصيل المستخدم',
@@ -1401,6 +1526,7 @@ export default function App() {
           <button className={page === 'activity' ? 'active' : ''} onClick={() => setPage('activity')}>🕘 حركة الحساب</button>
           <button className={page === 'transfers' ? 'active' : ''} onClick={() => setPage('transfers')}>🔁 حركة الحوالات</button>
           <button className={page === 'payments' ? 'active' : ''} onClick={() => setPage('payments')}>💳 المدفوعات</button>
+          <button className={page === 'subscription_requests' ? 'active' : ''} onClick={() => setPage('subscription_requests')}>🔔 طالبوا الاشتراك {subscriptionRequests.filter((r) => r.status === 'new').length ? <span className="nav-count">{subscriptionRequests.filter((r) => r.status === 'new').length}</span> : null}</button>
         </nav>
         <div className="side-footer">
           <b>مدير النظام</b>
@@ -1478,6 +1604,7 @@ export default function App() {
         {page === 'users' && <UsersTable users={users} onOpenUser={openUser} onCreateSubscription={(user) => { setSelectedUser(user); setShowSubscriptionModal(true); }} />}
         {page === 'subscriptions' && <SubscriptionsTable rows={subscriptions} onCancel={handleCancelSubscription} />}
         {page === 'payments' && <PaymentsTable rows={payments} />}
+        {page === 'subscription_requests' && <SubscriptionRequestsPage rows={subscriptionRequests} onOpenUserId={openUserById} onUpdateStatus={handleUpdateSubscriptionRequestStatus} />}
         {page === 'transfers' && <TransfersPage data={transfersData} onOpenUser={openUserById} />}
         {page === 'user_detail' && userDetail && <UserDetailPage detail={userDetail} onBack={() => setPage('users')} onRefresh={refreshUserDetail} onCreateSubscription={(user) => { setSelectedUser(user); setShowSubscriptionModal(true); }} onCancelSubscription={handleCancelSubscription} />}
         {page === 'user_detail' && !userDetail && (

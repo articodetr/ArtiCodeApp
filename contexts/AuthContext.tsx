@@ -75,56 +75,69 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [currentUser, setCurrentUser] = useState<{ userName: string; role: string; userId: string; fullName: string; accountNumber: string } | null>(null);
 
-  const buildDefaultSettings = (): AppSettings => ({
-    id: '',
-    shop_name: 'ArtiCode',
-    shop_phone: '',
-    shop_address: '',
-    header_layout: 'centered',
-    header_primary_color: '#4F46E5',
-    shop_name_en: 'ArtiCode',
-    shop_phone_en: '',
-    shop_address_en: '',
-    selected_receipt_logo: null,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  });
-
-  const loadSettings = async (userId?: string) => {
+  const loadSettings = async () => {
     try {
-      if (!userId) {
-        setSettings(buildDefaultSettings());
-        return;
-      }
-
-      const { data, error } = await supabase.rpc('get_or_create_user_settings', {
-        p_user_id: userId,
-      });
+      const FIXED_SETTINGS_ID = '00000000-0000-0000-0000-000000000000';
+      const { data, error } = await supabase
+        .from('app_settings')
+        .select('*')
+        .eq('id', FIXED_SETTINGS_ID)
+        .maybeSingle();
 
       if (!error && data) {
         setSettings(data);
         return;
       }
 
-      console.error('Error loading user settings:', error);
-      setSettings(buildDefaultSettings());
+      if (!error && !data) {
+        // Create default settings if none exist
+        const defaultSettings = {
+          shop_name: 'ArtiCode',
+          shop_phone: '',
+          shop_address: '',
+        };
+
+        const { data: newSettings } = await supabase
+          .from('app_settings')
+          .insert(defaultSettings)
+          .select()
+          .single();
+
+        if (newSettings) {
+          setSettings(newSettings);
+          return;
+        }
+      }
+
+      // If we get here, set default settings
+      setSettings({
+        id: '',
+        shop_name: 'ArtiCode',
+        shop_phone: '',
+        shop_address: '',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        selected_receipt_logo: null,
+      } as any);
     } catch (error) {
       console.error('Error loading settings:', error);
-      setSettings(buildDefaultSettings());
+      // Set default settings on error
+      setSettings({
+        id: '',
+        shop_name: 'ArtiCode',
+        shop_phone: '',
+        shop_address: '',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        selected_receipt_logo: null,
+      } as any);
     }
   };
 
   useEffect(() => {
     checkAuth();
+    loadSettings();
   }, []);
-
-  useEffect(() => {
-    if (currentUser?.userId) {
-      loadSettings(currentUser.userId);
-    } else {
-      setSettings(buildDefaultSettings());
-    }
-  }, [currentUser?.userId]);
 
   const checkAuth = async () => {
     try {
@@ -152,8 +165,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (userName: string, pin: string): Promise<{ success: boolean; error?: string }> => {
     try {
-      if (!settings && currentUser?.userId) {
-        await loadSettings(currentUser.userId);
+      if (!settings) {
+        await loadSettings();
       }
 
       // Check if account is locked due to too many failed attempts
@@ -263,7 +276,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const refreshSettings = async () => {
-    await loadSettings(currentUser?.userId);
+    await loadSettings();
   };
 
   const register = async (fullName: string, userName: string, password: string): Promise<{ success: boolean; accountNumber?: string; error?: string }> => {
@@ -399,18 +412,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return false;
       }
 
-      const activeUserId = currentUser?.userId;
-      const fixedId = '00000000-0000-0000-0000-000000000000';
-      const settingsToUpsert: Record<string, any> = activeUserId
-        ? { user_id: activeUserId, ...newSettings }
-        : { id: fixedId, ...newSettings };
+      const FIXED_ID = '00000000-0000-0000-0000-000000000000';
+
+      const settingsToUpsert = {
+        id: FIXED_ID,
+        ...newSettings,
+      };
 
       console.log('[AuthContext] Performing upsert with data:', JSON.stringify(settingsToUpsert, null, 2));
 
       const { data, error: upsertError } = await supabase
         .from('app_settings')
         .upsert(settingsToUpsert, {
-          onConflict: activeUserId ? 'user_id' : 'id',
+          onConflict: 'id',
           ignoreDuplicates: false,
         })
         .select();
@@ -425,12 +439,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       console.log('[AuthContext] Settings upserted successfully:', data);
 
-      if (activeUserId) {
-        await loadSettings(activeUserId);
-      } else {
-        await loadSettings();
-      }
-
+      await loadSettings();
       console.log('[AuthContext] Settings reloaded');
       return true;
     } catch (error) {

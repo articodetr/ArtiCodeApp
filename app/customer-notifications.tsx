@@ -94,7 +94,6 @@ function isNotificationPending(item: MovementNotification) {
   return (
     rawStatus === 'pending' ||
     anyItem.notification_type === 'approval_needed' ||
-    anyItem.notification_type === 'movement_pending' ||
     Boolean(anyItem.action_required) ||
     Boolean(anyItem.movement?.pending_approval)
   );
@@ -264,66 +263,6 @@ function searchNotificationsLocally(
   return notifications.filter((item) => getNotificationSearchText(item).includes(query));
 }
 
-function dedupeAndFixCustomerNotifications(
-  notifications: MovementNotification[],
-  forcedCustomerName?: string,
-) {
-  const cleanedForcedCustomerName = String(forcedCustomerName || '').trim();
-  const output = new Map<string, MovementNotification>();
-
-  for (const rawItem of notifications) {
-    const anyItem = rawItem as any;
-    const movement = anyItem.movement || null;
-
-    const patchedItem: MovementNotification = {
-      ...rawItem,
-      customer_name: cleanedForcedCustomerName || rawItem.customer_name,
-      movement: movement
-        ? {
-            ...movement,
-            customer: {
-              ...(movement.customer || {}),
-              name:
-                cleanedForcedCustomerName ||
-                movement.customer?.name ||
-                rawItem.customer_name ||
-                null,
-            },
-          }
-        : movement,
-    };
-
-    const rawStatus = getNotificationRawStatus(patchedItem);
-    const key = patchedItem.movement_id
-      ? [patchedItem.movement_id, rawStatus || anyItem.notification_type || 'info'].join('::')
-      : patchedItem.id;
-
-    if (!output.has(key)) {
-      output.set(key, patchedItem);
-      continue;
-    }
-
-    const existing = output.get(key)!;
-    const existingAny = existing as any;
-
-    const currentScore =
-      (patchedItem.customer_name ? 10 : 0) +
-      (patchedItem.action_required === false ? 2 : 0) +
-      (patchedItem.message ? 1 : 0);
-
-    const existingScore =
-      (existing.customer_name ? 10 : 0) +
-      (existing.action_required === false ? 2 : 0) +
-      (existingAny.message ? 1 : 0);
-
-    if (currentScore > existingScore) {
-      output.set(key, patchedItem);
-    }
-  }
-
-  return Array.from(output.values());
-}
-
 export default function CustomerNotificationsScreen() {
   const router = useRouter();
   const { currentUser } = useAuth();
@@ -350,7 +289,7 @@ export default function CustomerNotificationsScreen() {
 
     try {
       const nextNotifications = await getCustomerNotifications(currentUser.userId, customerId);
-      setNotifications(dedupeAndFixCustomerNotifications(nextNotifications, customerName));
+      setNotifications(nextNotifications);
     } catch (error) {
       console.error('[CustomerNotifications] Error loading customer notifications:', error);
       Alert.alert('خطأ', 'تعذر تحميل إشعارات هذا العميل');

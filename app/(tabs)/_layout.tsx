@@ -3,16 +3,15 @@ import { View, Text, StyleSheet } from 'react-native';
 import { Tabs } from 'expo-router';
 import { Home, Users, Bell, Settings } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+
 
 // =========================================================
 // Pending notifications badge helpers
 // The tab badge should count still-pending approvals,
 // not only unread notifications.
 // =========================================================
-
 type PendingNotificationRow = {
   id: string;
   status?: string | null;
@@ -100,50 +99,16 @@ export default function TabsLayout() {
 
   useEffect(() => {
     if (!currentUser?.userId) return;
-
-    const baseTopic = 'tab-badge-notifications';
-
-    // Remove any previous channels using the same base topic
-    // to avoid adding callbacks after subscribe().
-    supabase
-      .getChannels()
-      .filter((channel) => {
-        const topic = (channel as { topic?: string })?.topic ?? '';
-        return String(topic).includes(baseTopic);
-      })
-      .forEach((channel) => {
-        try {
-          void supabase.removeChannel(channel);
-        } catch {
-          // ignore cleanup errors
-        }
-      });
-
-    const channelName = `${baseTopic}-${currentUser.userId}-${Date.now()}`;
-
     const channel = supabase
-      .channel(channelName)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'movement_notifications',
-          filter: `user_id=eq.${currentUser.userId}`,
-        },
-        () => {
-          loadUnreadCount();
-        },
-      )
+      .channel('tab-badge-notifications')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'movement_notifications',
+        filter: `user_id=eq.${currentUser.userId}`,
+      }, () => { loadUnreadCount(); })
       .subscribe();
-
-    return () => {
-      try {
-        void supabase.removeChannel(channel);
-      } catch {
-        // ignore duplicate cleanup
-      }
-    };
+    return () => { supabase.removeChannel(channel); };
   }, [currentUser?.userId, loadUnreadCount]);
 
   return (
@@ -172,7 +137,6 @@ export default function TabsLayout() {
           tabBarIcon: ({ size, color }) => <Home size={size} color={color} />,
         }}
       />
-
       <Tabs.Screen
         name="customers"
         options={{
@@ -180,7 +144,6 @@ export default function TabsLayout() {
           tabBarIcon: ({ size, color }) => <Users size={size} color={color} />,
         }}
       />
-
       <Tabs.Screen
         name="notifications"
         options={{
@@ -199,14 +162,12 @@ export default function TabsLayout() {
           ),
         }}
       />
-
       <Tabs.Screen
         name="transactions"
         options={{
           href: null,
         }}
       />
-
       <Tabs.Screen
         name="settings"
         options={{

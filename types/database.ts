@@ -70,7 +70,6 @@ export interface Receipt {
 
 export interface AppSettings {
   id: string;
-  user_id?: string | null;
   shop_name: string;
   shop_logo?: string | null;
   shop_phone?: string | null;
@@ -81,8 +80,6 @@ export interface AppSettings {
   shop_name_en?: string;
   shop_phone_en?: string;
   shop_address_en?: string;
-  whatsapp_account_statement_template?: string | null;
-  whatsapp_share_account_template?: string | null;
   created_at?: string;
   updated_at?: string;
 }

@@ -60,7 +60,8 @@
       "router": {},
       "eas": {
         "projectId": "f6c89bb9-f1ac-4863-91f0-8d02da4f59af"
-      }
+      },
+      "EXPO_PUBLIC_ADMIN_WHATSAPP_NUMBER": "905352973229"
     },
     "owner": "arti_codeg"
   }

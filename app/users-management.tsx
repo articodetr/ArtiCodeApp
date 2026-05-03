@@ -251,8 +251,9 @@ export default function UsersManagement() {
   };
 
   const handleDeleteUser = (user: UserData) => {
-    if (currentUser?.userId === user.id) {
-      Alert.alert('غير مسموح', 'لا يمكنك حذف حسابك الحالي');
+    // منع حذف Ali
+    if (user.user_name.toLowerCase() === 'ali') {
+      Alert.alert('غير مسموح', 'لا يمكن حذف حساب Ali - هذا هو الحساب الرئيسي');
       return;
     }
 
@@ -528,8 +529,9 @@ export default function UsersManagement() {
   );
 
   const renderUserCard = (user: UserData) => {
+    const isAli = user.user_name.toLowerCase() === 'ali';
+    const canDelete = isAdmin && !isAli;
     const isOwnAccount = currentUser?.userId === user.id;
-    const canDelete = isAdmin && !isOwnAccount;
 
     return (
       <View key={user.id} style={styles.userCard}>

@@ -38,3 +38,5 @@ android_backup/
 apply-*.js
 fix-*.js
 repair-*.js
+*.local
+.env.local
