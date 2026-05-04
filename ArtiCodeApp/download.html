@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تحميل تطبيق الترف للتحويلات المالية</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 500px;
+            width: 100%;
+            padding: 40px 30px;
+            text-align: center;
+        }
+
+        .logo {
+            width: 120px;
+            height: 120px;
+            margin: 0 auto 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 25px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 60px;
+            color: white;
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+        }
+
+        h1 {
+            font-size: 28px;
+            color: #1F2937;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .subtitle {
+            font-size: 16px;
+            color: #6B7280;
+            margin-bottom: 30px;
+        }
+
+        .version {
+            display: inline-block;
+            background: #EEF2FF;
+            color: #4F46E5;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 30px;
+        }
+
+        .features {
+            text-align: right;
+            background: #F9FAFB;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+
+        .feature-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 0;
+            border-bottom: 1px solid #E5E7EB;
+        }
+
+        .feature-item:last-child {
+            border-bottom: none;
+        }
+
+        .feature-icon {
+            width: 24px;
+            height: 24px;
+            background: #10B981;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+
+        .feature-text {
+            font-size: 15px;
+            color: #374151;
+            text-align: right;
+        }
+
+        .download-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+            color: white;
+            text-decoration: none;
+            padding: 16px 40px;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: 700;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
+            width: 100%;
+            margin-bottom: 15px;
+        }
+
+        .download-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(16, 185, 129, 0.5);
+        }
+
+        .download-btn:active {
+            transform: translateY(0);
+        }
+
+        .android-icon {
+            font-size: 24px;
+        }
+
+        .info-box {
+            background: #FEF3C7;
+            border: 1px solid #FDE68A;
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 20px;
+        }
+
+        .info-text {
+            font-size: 13px;
+            color: #92400E;
+            line-height: 1.6;
+        }
+
+        .file-info {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #E5E7EB;
+        }
+
+        .file-info-item {
+            text-align: center;
+        }
+
+        .file-info-label {
+            font-size: 12px;
+            color: #9CA3AF;
+            margin-bottom: 4px;
+        }
+
+        .file-info-value {
+            font-size: 16px;
+            font-weight: 700;
+            color: #1F2937;
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 30px 20px;
+            }
+
+            h1 {
+                font-size: 24px;
+            }
+
+            .download-btn {
+                font-size: 16px;
+                padding: 14px 30px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">💰</div>
+
+        <h1>الترف للتحويلات المالية</h1>
+        <p class="subtitle">نظام إدارة التحويلات والعملاء</p>
+
+        <span class="version">الإصدار 1.0.0</span>
+
+        <div class="features">
+            <div class="feature-item">
+                <div class="feature-icon">✓</div>
+                <div class="feature-text">إدارة حركات التحويلات والإستلام</div>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon">✓</div>
+                <div class="feature-text">دعم متعدد العملات (دولار، ريال، ليرة، دينار)</div>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon">✓</div>
+                <div class="feature-text">نظام العمولات الآلي</div>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon">✓</div>
+                <div class="feature-text">طباعة الإيصالات والتقارير</div>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon">✓</div>
+                <div class="feature-text">نظام حماية برمز PIN</div>
+            </div>
+        </div>
+
+        <a href="./app.apk" class="download-btn" download>
+            <span class="android-icon">📱</span>
+            <span>تحميل للأندرويد</span>
+        </a>
+
+        <div class="info-box">
+            <p class="info-text">
+                <strong>ملاحظة:</strong> قد تحتاج إلى تفعيل "السماح بالتثبيت من مصادر غير معروفة" في إعدادات الأمان على جهازك.
+            </p>
+        </div>
+
+        <div class="file-info">
+            <div class="file-info-item">
+                <div class="file-info-label">نوع الملف</div>
+                <div class="file-info-value">APK</div>
+            </div>
+            <div class="file-info-item">
+                <div class="file-info-label">الحجم التقريبي</div>
+                <div class="file-info-value">~50 MB</div>
+            </div>
+            <div class="file-info-item">
+                <div class="file-info-label">الإصدار</div>
+                <div class="file-info-value">1.0.0</div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
